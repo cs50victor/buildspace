@@ -54,7 +54,6 @@ export default function Page() {
   const outputs = [
     appConfig?.outputs.audio && PlaygroundOutputs.Audio,
     appConfig?.outputs.video && PlaygroundOutputs.Video,
-    appConfig?.outputs.chat && PlaygroundOutputs.Chat,
   ].filter((item) => typeof item !== 'boolean') as PlaygroundOutputs[];
 
   const handleConnect = useCallback((connect: boolean, opts?: { url: string; token: string }) => {
