@@ -4,11 +4,10 @@ import { LiveKitRoom, RoomAudioRenderer, StartAudio, useToken } from '@livekit/c
 import { AnimatePresence, motion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import Playground, { PlaygroundMeta, PlaygroundOutputs } from '~/components/Playground';
+import Playground, { PlaygroundOutputs } from '~/components/Playground';
 import { PlaygroundToast, ToastType } from '~/components/PlaygroundToast';
 import { useAppConfig } from '~/hooks/useAppConfig';
-
-const themeColors = ['cyan', 'green', 'amber', 'blue', 'violet', 'rose', 'pink', 'teal'];
+import { CallNavBar } from '~/components/CallNavbar';
 
 export default function Page() {
   const [toastMessage, setToastMessage] = useState<{
@@ -17,7 +16,6 @@ export default function Page() {
   } | null>(null);
   const [shouldConnect, setShouldConnect] = useState(false);
   const [liveKitUrl, setLiveKitUrl] = useState(process.env.NEXT_PUBLIC_LIVEKIT_URL);
-  const [metadata, setMetadata] = useState<PlaygroundMeta[]>([]);
 
   const [roomName, setRoomName] = useState(createRoomName());
 
@@ -34,31 +32,16 @@ export default function Page() {
     }
   }, [shouldConnect]);
 
-  useEffect(() => {
-    const md: PlaygroundMeta[] = [];
-    if (liveKitUrl && liveKitUrl !== process.env.NEXT_PUBLIC_LIVEKIT_URL) {
-      md.push({ name: 'LiveKit URL', value: liveKitUrl });
-    }
-    if (tokenOptions.userInfo?.identity) {
-      md.push({ name: 'Room Name', value: roomName });
-      md.push({
-        name: 'Participant Identity',
-        value: tokenOptions.userInfo.identity,
-      });
-    }
-    setMetadata(md);
-  }, [liveKitUrl, roomName, tokenOptions]);
-
   const token = useToken('/api/get-participant-token', roomName, tokenOptions);
+
   const appConfig = useAppConfig();
+
   const outputs = [
     appConfig?.outputs.audio && PlaygroundOutputs.Audio,
     appConfig?.outputs.video && PlaygroundOutputs.Video,
   ].filter((item) => typeof item !== 'boolean') as PlaygroundOutputs[];
 
   const handleConnect = useCallback((connect: boolean, opts?: { url: string; token: string }) => {
-    console.log('connect', connect);
-    console.log('connect opts', opts);
     if (connect && opts) {
       setLiveKitUrl(opts.url);
     }
@@ -78,9 +61,7 @@ export default function Page() {
             <PlaygroundToast
               message={toastMessage.message}
               type={toastMessage.type}
-              onDismiss={() => {
-                setToastMessage(null);
-              }}
+              onDismiss={() => setToastMessage(null)}
             />
           </motion.div>
         )}
@@ -89,8 +70,8 @@ export default function Page() {
         className="flex flex-col h-full w-full"
         serverUrl={liveKitUrl}
         token={token}
-        audio={appConfig?.inputs.mic}
-        video={appConfig?.inputs.camera}
+        audio={appConfig.inputs.mic}
+        video={false}
         connect={shouldConnect}
         onError={(e) => {
           setToastMessage({ message: e.message, type: 'error' });
@@ -98,15 +79,18 @@ export default function Page() {
         }}
       >
         <Playground
+          agent_name={appConfig.agent_name}
           outputs={outputs}
-          themeColors={themeColors}
-          defaultColor={appConfig?.theme_color ?? 'cyan'}
+          themeColor={appConfig.theme_color}
           onConnect={handleConnect}
-          metadata={metadata}
-          videoFit={appConfig?.video_fit ?? 'cover'}
+          videoFit={appConfig.video_fit}
         />
         <RoomAudioRenderer />
         <StartAudio label="Click to enable audio playback" />
+        <CallNavBar
+          className="border-none bg-transparent [&>*:first-child]:bg-white [&>*:first-child]:rounded-full [&>*:first-child]:px-0 [&>*:first-child]:py-0 fixed bottom-6 mx-auto self-center"
+          handleConnect={handleConnect}
+        />
       </LiveKitRoom>
     </main>
   );
