@@ -2,8 +2,8 @@
 
 buildspace demo. find and be found.
 
-# How to add a new season
+## how to add a new season
 
-run `curl https://buildspace.so/s<number>/demoday >> season/s<number>.html`
+- run `curl https://buildspace.so/s<number>/demoday >> seasons/s<number>.html`
 
-- example `curl https://buildspace.so/s3/demoday >> season/s3.html`
+> example `curl https://buildspace.so/s3/demoday >> seasons/s3.html`

@@ -10,6 +10,7 @@ import { AgentMultibandAudioVisualizer } from '~/components/AgentMultibandAudioV
 import { useMultibandTrackVolume } from '~/hooks/useTrackVolume';
 import { AgentState } from '~/lib/types';
 import {
+  TrackReference,
   VideoTrack,
   useChat,
   useConnectionState,
@@ -138,49 +139,21 @@ export default function Playground({
 
   useDataChannel(onDataReceived);
 
-  const videoTileContent = useMemo(() => {
+  const mixedMediaContent = useMemo(() => {
     const videoFitClassName = `object-${videoFit}`;
     return (
-      <div className="flex flex-col w-full grow text-gray-950 bg-black rounded-sm border border-gray-800 relative">
-        {agentVideoTrack ? (
-          <VideoTrack
-            trackRef={agentVideoTrack}
-            className={`absolute top-1/2 -translate-y-1/2 ${videoFitClassName} object-position-center w-full h-full`}
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center gap-2 text-gray-700 text-center h-full w-full">
-            <LoadingSVG />
-            Waiting for video track
-          </div>
-        )}
-      </div>
+      <MixedMedia
+        {...{
+          agentVideoTrack,
+          agentAudioTrack,
+          agentState,
+          videoFit,
+          subscribedVolumes,
+          themeColor,
+        }}
+      />
     );
-  }, [agentVideoTrack, videoFit]);
-
-  const audioTileContent = useMemo(() => {
-    return (
-      <div className="flex items-center justify-center w-full">
-        {agentAudioTrack ? (
-          <AgentMultibandAudioVisualizer
-            state={agentState}
-            barWidth={30}
-            minBarHeight={30}
-            maxBarHeight={150}
-            accentColor={themeColor}
-            accentShade={500}
-            frequencies={subscribedVolumes}
-            borderRadius={12}
-            gap={16}
-          />
-        ) : (
-          <div className="flex flex-col items-center gap-2 text-gray-700 text-center w-full">
-            <LoadingSVG />
-            Waiting for audio track
-          </div>
-        )}
-      </div>
-    );
-  }, [agentAudioTrack, subscribedVolumes, themeColor, agentState]);
+  }, [agentAudioTrack, subscribedVolumes, themeColor, agentState, agentVideoTrack, videoFit]);
 
   const settingsTileContent = useMemo(() => {
     return (
@@ -291,42 +264,32 @@ export default function Playground({
     themeColors,
   ]);
 
-  let mobileTabs: PlaygroundTab[] = [];
-  if (outputs?.includes(PlaygroundOutputs.Video)) {
+  let mobileTabs: PlaygroundTab[] = [
+    {
+      title: 'Settings',
+      content: (
+        <PlaygroundTile
+          padding={false}
+          backgroundColor="gray-950"
+          className="h-full w-full basis-1/4 items-start overflow-y-auto flex"
+          childrenClassName="h-full grow items-start"
+        >
+          {settingsTileContent}
+        </PlaygroundTile>
+      ),
+    },
+  ];
+
+  if (outputs?.includes(PlaygroundOutputs.Audio) || outputs?.includes(PlaygroundOutputs.Video)) {
     mobileTabs.push({
-      title: 'Video',
+      title: 'Agent',
       content: (
         <PlaygroundTile className="w-full h-full grow" childrenClassName="justify-center">
-          {videoTileContent}
+          {mixedMediaContent}
         </PlaygroundTile>
       ),
     });
   }
-
-  if (outputs?.includes(PlaygroundOutputs.Audio)) {
-    mobileTabs.push({
-      title: 'Audio',
-      content: (
-        <PlaygroundTile className="w-full h-full grow" childrenClassName="justify-center">
-          {audioTileContent}
-        </PlaygroundTile>
-      ),
-    });
-  }
-
-  mobileTabs.push({
-    title: 'Settings',
-    content: (
-      <PlaygroundTile
-        padding={false}
-        backgroundColor="gray-950"
-        className="h-full w-full basis-1/4 items-start overflow-y-auto flex"
-        childrenClassName="h-full grow items-start"
-      >
-        {settingsTileContent}
-      </PlaygroundTile>
-    ),
-  });
 
   return (
     <>
@@ -351,20 +314,11 @@ export default function Playground({
         >
           {outputs?.includes(PlaygroundOutputs.Video) && (
             <PlaygroundTile
-              title="Video"
+              title="Agent"
               className="w-full h-full grow"
               childrenClassName="justify-center"
             >
-              {videoTileContent}
-            </PlaygroundTile>
-          )}
-          {outputs?.includes(PlaygroundOutputs.Audio) && (
-            <PlaygroundTile
-              title="Audio"
-              className="w-full h-full grow"
-              childrenClassName="justify-center"
-            >
-              {audioTileContent}
+              {mixedMediaContent}
             </PlaygroundTile>
           )}
         </div>
@@ -381,3 +335,63 @@ export default function Playground({
     </>
   );
 }
+
+const MixedMedia = ({
+  agentVideoTrack,
+  agentAudioTrack,
+  agentState,
+  videoFit,
+  subscribedVolumes,
+  themeColor,
+}: {
+  themeColor: string;
+  agentVideoTrack?: TrackReference;
+  subscribedVolumes: Float32Array[];
+  agentAudioTrack?: TrackReference;
+  agentState: AgentState;
+  videoFit: PlaygroundProps['videoFit'];
+}) => {
+  if (agentVideoTrack) {
+    const videoFitClassName = `object-${videoFit}`;
+    return (
+      <div className="flex flex-col w-full grow text-gray-950 bg-black rounded-sm border border-gray-800 relative">
+        <VideoTrack
+          trackRef={agentVideoTrack}
+          className={`absolute top-1/2 -translate-y-1/2 ${videoFitClassName} object-position-center w-full h-full`}
+        />
+      </div>
+    );
+  } else if (agentAudioTrack) {
+    <div className="flex items-center justify-center w-full">
+      <AgentMultibandAudioVisualizer
+        state={agentState}
+        barWidth={30}
+        minBarHeight={30}
+        maxBarHeight={150}
+        accentColor={themeColor}
+        accentShade={500}
+        frequencies={subscribedVolumes}
+        borderRadius={12}
+        gap={16}
+      />
+    </div>;
+  } else if (!agentAudioTrack) {
+    return (
+      <div className="flex items-center justify-center w-full">
+        <div className="flex flex-col items-center gap-2 text-gray-700 text-center w-full">
+          <LoadingSVG />
+          Waiting for audio track
+        </div>
+      </div>
+    );
+  } else {
+    return (
+      <div className="flex flex-col w-full grow text-gray-950 bg-black rounded-sm border border-gray-800 relative">
+        <div className="flex flex-col items-center justify-center gap-2 text-gray-700 text-center h-full w-full">
+          <LoadingSVG />
+          Waiting for video track
+        </div>
+      </div>
+    );
+  }
+};
