@@ -10,6 +10,7 @@ type PlaygroundTileProps = {
   className?: string;
   childrenClassName?: string;
   padding?: boolean;
+  status: ReactNode;
   backgroundColor?: string;
 };
 
@@ -29,6 +30,7 @@ export const PlaygroundTile: React.FC<PlaygroundTileProps> = ({
   className,
   childrenClassName,
   padding = true,
+  status,
   backgroundColor = 'transparent',
 }) => {
   const contentPadding = padding ? 4 : 0;
@@ -43,7 +45,8 @@ export const PlaygroundTile: React.FC<PlaygroundTileProps> = ({
             height: `${titleHeight}px`,
           }}
         >
-          <h2>{title}</h2>
+          <h2 className="font-black">{title}</h2>
+          <div>{status}</div>
         </div>
       )}
       <div

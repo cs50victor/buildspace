@@ -2,6 +2,14 @@
 
 import { useMediaDeviceSelect } from '@livekit/components-react';
 import { useEffect, useState } from 'react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
 
 type PlaygroundDeviceSelectorProps = {
   kind: MediaDeviceKind;
@@ -33,43 +41,42 @@ export const PlaygroundDeviceSelector = ({ kind }: PlaygroundDeviceSelectorProps
   }, [showMenu]);
 
   return (
-    <div>
-      <button
-        className="flex gap-2 items-center px-2 py-1 bg-gray-900 text-gray-300 border border-gray-800 rounded-sm hover:bg-gray-800"
-        onClick={(e) => {
-          setShowMenu(!showMenu);
-          e.stopPropagation();
-        }}
-      >
-        <span className="max-w-[80px] overflow-ellipsis overflow-hidden whitespace-nowrap">
-          {selectedDeviceName}
-        </span>
-        <ChevronSVG />
-      </button>
-      <div
-        className="absolute right-4 top-12 bg-gray-800 text-gray-300 border border-gray-800 rounded-sm z-10"
-        style={{
-          display: showMenu ? 'block' : 'none',
-        }}
-      >
-        {deviceSelect.devices.map((device, index) => {
-          return (
-            <div
-              onClick={() => {
-                deviceSelect.setActiveMediaDevice(device.deviceId);
-                setShowMenu(false);
-              }}
-              className={`${
-                device.deviceId === deviceSelect.activeDeviceId ? 'text-white' : 'text-gray-500'
-              } bg-gray-900 text-xs py-2 px-2 cursor-pointer hover:bg-gray-800 hover:text-white`}
-              key={index}
-            >
-              {device.label}
-            </div>
-          );
-        })}
-      </div>
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className="flex gap-2 items-center px-2 py-1 bg-gray-900 text-gray-300 border border-gray-800 rounded-sm hover:bg-gray-800"
+          onClick={(e) => {
+            setShowMenu(!showMenu);
+            e.stopPropagation();
+          }}
+        >
+          <span className="max-w-[80px] overflow-ellipsis overflow-hidden whitespace-nowrap">
+            {selectedDeviceName}
+          </span>
+          <ChevronSVG />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56 border border-gray-800 rounded-lg z-10 bg-inherit text-inherit">
+        <DropdownMenuLabel>Audio Device</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {deviceSelect.devices.map((device, index) => (
+          <DropdownMenuItem
+            onClick={() => {
+              deviceSelect.setActiveMediaDevice(device.deviceId);
+              setShowMenu(false);
+            }}
+            className={`${
+              device.deviceId === deviceSelect.activeDeviceId
+                ? 'text-white font-semibold'
+                : 'text-gray-500'
+            }`}
+            key={index}
+          >
+            {device.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
 

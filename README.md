@@ -2,8 +2,13 @@
 
 buildspace demo. find and be found.
 
-# How to add a new season
+## setup for mac
 
-run `curl https://buildspace.so/s<number>/demoday >> season/s<number>.html`
+- mkcenv --name buildspace
+- `python server/agent.py start`
 
-- example `curl https://buildspace.so/s3/demoday >> season/s3.html`
+## how to add a new season
+
+- run `curl https://buildspace.so/s<number>/demoday >> seasons/s<number>.html`
+
+> example `curl https://buildspace.so/s3/demoday >> seasons/s3.html`
