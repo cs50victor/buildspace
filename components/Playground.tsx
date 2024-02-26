@@ -1,7 +1,6 @@
 'use client';
 
 import { LoadingSVG } from '~/components/LoadingSVG';
-import { ChatMessageType, ChatTile } from '~/components/ChatTile';
 import { ColorPicker } from '~/components/ColorPicker';
 import { AudioInputTile } from '~/components/AudioInputTile';
 import { ConfigurationPanelItem } from '~/components/ConfigurationPanelItem';
@@ -28,7 +27,6 @@ import { Button } from './Button';
 export enum PlaygroundOutputs {
   Video,
   Audio,
-  Chat,
 }
 
 export interface PlaygroundMeta {
@@ -61,8 +59,7 @@ export default function Playground({
 }: PlaygroundProps) {
   const [agentState, setAgentState] = useState<AgentState>('offline');
   const [themeColor, setThemeColor] = useState(defaultColor);
-  const [messages, setMessages] = useState<ChatMessageType[]>([]);
-  const [transcripts, setTranscripts] = useState<ChatMessageType[]>([]);
+  const [transcripts, setTranscripts] = useState<any[]>([]);
   const { localParticipant } = useLocalParticipant();
 
   const participants = useRemoteParticipants({
@@ -139,33 +136,6 @@ export default function Playground({
     [transcripts],
   );
 
-  // combine transcripts and chat together
-  useEffect(() => {
-    const allMessages = [...transcripts];
-    for (const msg of chatMessages) {
-      const isAgent = msg.from?.identity === agentParticipant?.identity;
-      const isSelf = msg.from?.identity === localParticipant?.identity;
-      let name = msg.from?.name;
-      if (!name) {
-        if (isAgent) {
-          name = 'Agent';
-        } else if (isSelf) {
-          name = 'You';
-        } else {
-          name = 'Unknown';
-        }
-      }
-      allMessages.push({
-        name,
-        message: msg.message,
-        timestamp: msg?.timestamp,
-        isSelf: isSelf,
-      });
-    }
-    allMessages.sort((a, b) => a.timestamp - b.timestamp);
-    setMessages(allMessages);
-  }, [transcripts, chatMessages, localParticipant, agentParticipant]);
-
   useDataChannel(onDataReceived);
 
   const videoTileContent = useMemo(() => {
@@ -211,10 +181,6 @@ export default function Playground({
       </div>
     );
   }, [agentAudioTrack, subscribedVolumes, themeColor, agentState]);
-
-  const chatTileContent = useMemo(() => {
-    return <ChatTile messages={messages} accentColor={themeColor} onSend={sendChat} />;
-  }, [messages, themeColor, sendChat]);
 
   const settingsTileContent = useMemo(() => {
     return (
@@ -348,13 +314,6 @@ export default function Playground({
     });
   }
 
-  if (outputs?.includes(PlaygroundOutputs.Chat)) {
-    mobileTabs.push({
-      title: 'Chat',
-      content: chatTileContent,
-    });
-  }
-
   mobileTabs.push({
     title: 'Settings',
     content: (
@@ -410,11 +369,6 @@ export default function Playground({
           )}
         </div>
 
-        {outputs?.includes(PlaygroundOutputs.Chat) && (
-          <PlaygroundTile title="Chat" className="h-full grow basis-1/4 hidden lg:flex">
-            {chatTileContent}
-          </PlaygroundTile>
-        )}
         <PlaygroundTile
           padding={false}
           backgroundColor="gray-950"
