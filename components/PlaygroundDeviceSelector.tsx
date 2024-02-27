@@ -59,7 +59,7 @@ export const PlaygroundDeviceSelector = ({ kind }: PlaygroundDeviceSelectorProps
       <DropdownMenuContent className="w-56 border border-gray-800 rounded-lg z-10 bg-inherit text-inherit">
         <DropdownMenuLabel>Audio Device</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {deviceSelect.devices.map((device, index) => (
+        {deviceSelect?.devices?.map((device, index) => (
           <DropdownMenuItem
             onClick={() => {
               deviceSelect.setActiveMediaDevice(device.deviceId);
