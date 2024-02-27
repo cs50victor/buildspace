@@ -21,7 +21,7 @@ export const PlaygroundDeviceSelector = ({ kind }: PlaygroundDeviceSelectorProps
   const [selectedDeviceName, setSelectedDeviceName] = useState('');
 
   useEffect(() => {
-    deviceSelect.devices.forEach((device) => {
+    deviceSelect?.devices?.forEach((device) => {
       if (device.deviceId === deviceSelect.activeDeviceId) {
         setSelectedDeviceName(device.label);
       }
