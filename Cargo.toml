@@ -8,4 +8,5 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.80"
 headless_chrome = "1.0.9"
+regex = "1.10.3"
 scraper = "0.18.1"
