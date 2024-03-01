@@ -214,7 +214,7 @@ const MixedMedia = ({
   if (agentVideoTrack) {
     const videoFitClassName = `object-${videoFit}`;
     return (
-      <div className="flex flex-col w-full grow text-gray-950 bg-black rounded-sm border border-gray-800 relative">
+      <div className="flex flex-col w-full grow text-gray-950 bg-black rounded-sm relative">
         <VideoTrack
           trackRef={agentVideoTrack}
           className={`absolute top-1/2 -translate-y-1/2 ${videoFitClassName} object-position-center w-full h-full`}

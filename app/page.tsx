@@ -88,7 +88,7 @@ export default function Page() {
         <RoomAudioRenderer />
         <StartAudio label="Click to enable audio playback" />
         <CallNavBar
-          className="border-none bg-transparent [&>*:first-child]:bg-white [&>*:first-child]:rounded-full [&>*:first-child]:px-0 [&>*:first-child]:py-0 fixed bottom-6 mx-auto self-center"
+          className="border-none bg-transparent [&>*:second-child]:bg-white [&>*:second-child]:rounded-full [&>*:second-child]:px-0 [&>*:second-child]:py-0 fixed bottom-6 mx-auto self-center"
           handleConnect={handleConnect}
         />
       </LiveKitRoom>

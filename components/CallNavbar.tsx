@@ -18,6 +18,12 @@ export const CallNavBar = ({
   return (
     <Menubar className={className}>
       <MenubarMenu>
+        <TrackToggle
+          className="p-2 bg-gray-900 text-gray-300 border border-gray-800 rounded-sm hover:bg-gray-800"
+          source={Track.Source.Microphone}
+        />
+      </MenubarMenu>
+      <MenubarMenu>
         <MenubarTrigger className="bg-transparent">
           <button
             className="bg-transparent"
@@ -29,7 +35,7 @@ export const CallNavBar = ({
             ) : (
               <div
                 className={tw(
-                  'rounded-full p-3 transition-all duration-300',
+                  'rounded-full p-2 transition-all duration-300',
                   roomState === ConnectionState.Connected ? 'bg-red-700' : 'bg-green-600',
                 )}
               >
@@ -45,14 +51,7 @@ export const CallNavBar = ({
         </MenubarTrigger>
       </MenubarMenu>
       <MenubarMenu>
-        <span className="flex flex-row gap-2 px-4 py-2 rounded-full">
-          <TrackToggle
-            className="px-2 py-1 bg-gray-900 text-gray-300 border border-gray-800 rounded-sm hover:bg-gray-800"
-            source={Track.Source.Microphone}
-          />
-          <PlaygroundDeviceSelector kind="audioinput" />
-        </span>
-        <MenubarTrigger></MenubarTrigger>
+        <PlaygroundDeviceSelector kind="audioinput" />
       </MenubarMenu>
     </Menubar>
   );
