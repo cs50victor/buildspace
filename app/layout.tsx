@@ -20,11 +20,10 @@ const display = Roboto({
 export const metadata: Metadata = {
   metadataBase: new URL(`https://${process.env.VERCEL_URL}`),
   title: {
-    default: 'Livekit x Kitt2',
-    template: '%s - Livekit Kitt2',
+    default: 'Buildspace AI',
+    template: '%s - Buildspace AI',
   },
-  description:
-    'LiveKit is an open source WebRTC project that gives you everything needed to build scalable and real-time audio and/or video experiences in your applications.',
+  description: 'Buildspace AI. Find and be found.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
