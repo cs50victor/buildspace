@@ -8,14 +8,15 @@ use deepgram::{
 };
 use futures::StreamExt;
 use headless_chrome::Browser;
-use rustube::{Id, Video};
+use rusty_ytdl::*;
+use rusty_ytdl::{VideoOptions, VideoQuality, VideoSearchOptions};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap,
+    collections::HashSet,
     env,
     fs::{self, File},
-    io::{BufWriter, Read, Write},
-    time::{Duration, Instant},
+    io::{BufWriter, Write},
+    time::Instant,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -41,10 +42,7 @@ async fn main() -> anyhow::Result<()> {
 
     let paths = fs::read_dir("./seasons")?;
     let browser = Browser::default()?;
-    let req_timeout = Duration::from_secs(120);
 
-    let http_client = &reqwest::Client::builder().timeout(req_timeout).build()?;
-    
     let dg_client = &Deepgram::new(&deepgram_api_key);
     let openai_client = &async_openai::Client::new();
 
@@ -59,6 +57,7 @@ async fn main() -> anyhow::Result<()> {
         }
 
         println!("reading {path}");
+
         let start = Instant::now();
 
         let tab = browser.new_tab()?;
@@ -76,14 +75,13 @@ async fn main() -> anyhow::Result<()> {
             r"(?:\/embed\/|\/v\/|\/watch\?v=|youtu\.be\/|\/shorts\/)([a-zA-Z0-9_-]+)",
         )?;
 
+        // Get s3 html prev cached result
         let file = File::open("seasons/s3_raw.json")?;
         let mut s3_raw_submission: Vec<DemoDaySubmission> =
             serde_json::from_reader(file).expect("JSON was not well-formatted");
 
-        let s3_raw_submission_hash: HashMap<_, _> = s3_raw_submission
-            .iter()
-            .map(|s| (s.title.clone(), s.youtube_url.clone()))
-            .collect();
+        let s3_raw_submission_hash: HashSet<String> =
+            s3_raw_submission.iter().map(|s| s.title.clone()).collect();
 
         let num_of_s3_submissions_from_cache = s3_raw_submission.len();
 
@@ -96,7 +94,7 @@ async fn main() -> anyhow::Result<()> {
             println!("all s3 submission successfully retrieved from cache");
         } else if let Ok(submissions) = tab.wait_for_elements("div.framer-1wkjeqj-container") {
             println!("...processing {} buildspace submisions", submissions.len());
-            
+
             let submissions = submissions
                 .iter()
                 .filter_map(|c| {
@@ -104,9 +102,10 @@ async fn main() -> anyhow::Result<()> {
                         .wait_for_element("div.framer-1i5kbww>p")
                         .map(|el| el.get_inner_text().unwrap_or_default())
                         .unwrap_or_default();
-                    if s3_raw_submission_hash.contains_key(&title) {
+                    if s3_raw_submission_hash.contains(&title) {
                         return None;
                     };
+
                     println!("saving title {}", title);
 
                     let description = c
@@ -134,7 +133,9 @@ async fn main() -> anyhow::Result<()> {
 
                     let submission_dom = &c.get_content().unwrap_or_default();
 
-                    let youtube_url = re.find(submission_dom).map_or("".to_string(), |s|regex_output_to_yt_url(s.as_str()));
+                    let youtube_url = re
+                        .find(submission_dom)
+                        .map_or("".to_string(), |s| regex_output_to_yt_url(s.as_str()));
 
                     println!("\t url {youtube_url}");
                     Some(DemoDaySubmission {
@@ -167,8 +168,9 @@ async fn main() -> anyhow::Result<()> {
             serde_json::from_reader(file).unwrap_or_default();
 
         let num_of_s3_embedded_submissions_from_cache = s3_embedded_submissions.len();
+
         println!(
-            "using embedded {} submissions from s3.html cache",
+            "using {} embedded submissions from s3.html cache",
             num_of_s3_embedded_submissions_from_cache
         );
 
@@ -176,29 +178,53 @@ async fn main() -> anyhow::Result<()> {
             println!("all embedded s3 submission successfully retrieved from cache");
             return Ok(());
         };
-        
-        let mut s3_embedded_submissions_hash: HashMap<_, _> = s3_embedded_submissions
+
+        let mut s3_embedded_submissions_hash: HashSet<String> = s3_embedded_submissions
             .iter()
-            .map(|s| (s.title.clone(), s.youtube_url.clone()))
+            .map(|s| s.youtube_url.clone())
             .collect();
 
-        while s3_embedded_submissions.len() != NUM_OF_VALID_S3_SUBMISSIONS {
-            for embedded_submission_chunk in s3_raw_submission.chunks(40){
-                let fetches = futures::stream::iter(embedded_submission_chunk.iter().cloned().map(|mut s| {
-                    async {
-                        if s3_embedded_submissions_hash.contains_key(&s.title){return None}
-    
-                        let Ok((audio_url, mime)) = youtube_video_audio_url(&s.youtube_url).await else {return None};
+        if num_of_s3_embedded_submissions_from_cache == NUM_OF_VALID_S3_SUBMISSIONS {
+            println!("all s3 submissions have been embedded");
+            return Ok(());
+        }
+        println!(
+            "embedded cache len {} vs raw len {}",
+            num_of_s3_embedded_submissions_from_cache,
+            s3_raw_submission.len()
+        );
 
-                        let transcript = match audio_url_to_text(&audio_url, mime.clone(), dg_client, http_client).await{
-                            Ok(t) => t,
-                            Err(e) => {
-                                // println!("{e:?}");
-                                return None;
-                            },
+        // chunking to save progress, to save cost if connection drops or
+        // something else causes loop to fail
+
+        for embedded_submission_chunk in s3_raw_submission.chunks(50) {
+            println!("e len - {}", embedded_submission_chunk.len());
+            let fetches =
+                futures::stream::iter(embedded_submission_chunk.iter().cloned().map(|mut s| {
+                    async {
+                        if s3_embedded_submissions_hash.contains(&s.youtube_url) {
+                            return None;
+                        }
+
+                        println!("embedding submission : {}", &s.title);
+
+                        let transcript =
+                            match yt_url_to_text(&s.youtube_url, dg_client).await {
+                                Ok(t) => t,
+                                Err(e) => {
+                                    println!("{e:?}");
+                                    return None;
+                                }
+                            };
+
+                        let video_embedding =
+                            match text_to_embedding(&transcript, openai_client).await {
+                                Ok(e) => e,
+                                Err(err) => {
+                                    println!("{err:?}");
+                                    return None;
+                                },
                         };
-        
-                        let Ok(video_embedding) = text_to_embedding(&transcript, openai_client).await else {return None};
                         s.youtube_transcript = Some(transcript);
                         s.embedding = Some(video_embedding);
                         Some(s)
@@ -206,34 +232,46 @@ async fn main() -> anyhow::Result<()> {
                 }))
                 .buffer_unordered(10)
                 .collect::<Vec<_>>();
-        
-                println!("Waiting...");
-        
-                let submissions_with_embeddings = fetches.await;
-                let submissions_with_embeddings = submissions_with_embeddings
-                    .into_iter()
-                    .flatten()
-                    .collect::<Vec<_>>();
-        
-                let submissions_with_embeddings_hash: HashMap<_, _> = s3_embedded_submissions
-                    .iter()
-                    .map(|s| (s.title.clone(), s.youtube_url.clone()))
-                    .collect();
-    
-                s3_embedded_submissions.extend(submissions_with_embeddings);
-                s3_embedded_submissions_hash.extend(submissions_with_embeddings_hash);
-                println!("writing {} submissions_with_embeddings", s3_embedded_submissions.len());
-                let file = File::create("seasons/s3.json")?;
-                let mut writer = BufWriter::new(file);
-                serde_json::to_writer(&mut writer, &s3_embedded_submissions)?;
-                writer.flush()?;
-            };
+
+            println!("Waiting...");
+
+            let submissions_with_embeddings = fetches.await;
+            let submissions_with_embeddings = submissions_with_embeddings
+                .into_iter()
+                .flatten()
+                .collect::<Vec<DemoDaySubmission>>();
+
+            let submissions_with_embeddings_hash: HashSet<String> = submissions_with_embeddings
+                .iter()
+                .map(|s| s.youtube_url.clone())
+                .collect();
+
+            s3_embedded_submissions.extend(submissions_with_embeddings);
+            s3_embedded_submissions_hash.extend(submissions_with_embeddings_hash);
+
+            println!(
+                "writing {} submissions_with_embeddings",
+                s3_embedded_submissions.len()
+            );
+            let file = File::create("seasons/s3.json")?;
+            let mut writer = BufWriter::new(file);
+            serde_json::to_writer(&mut writer, &s3_embedded_submissions)?;
+            writer.flush()?;
         }
-        let elapsed = start.elapsed();
-        println!(
-            "total time taken to process file : {:.4}ms",
-            elapsed.as_secs()
-        );
+        // let elapsed = start.elapsed();
+        // println!(
+        //     "total time taken to process file : {:.4}ms",
+        //     elapsed.as_secs()
+        // );
+        let (a , b) = (s3_raw_submission.len(), s3_embedded_submissions.len());
+        println!("# of submissions {}", a);
+        println!("# of embedded submissions {}", b);
+        if a == b {
+            println!("All submitted videos have been embedded");
+        }
+        else{
+            println!("{b}/{a} submitted videos have been embedded. {} videos are either private or longer exist", a-b);
+        }
     }
 
     Ok(())
@@ -244,18 +282,34 @@ fn regex_output_to_yt_url(re_match: &str) -> String {
     format!("https://youtube.com/watch?v={}", id)
 }
 
-async fn audio_url_to_text(
-    audio_url: &str,
-    audio_mime: String,
+async fn yt_url_to_text(
+    youtube_url: &str,
     deepgram_client: &Deepgram,
-    http_client: &reqwest::Client,
 ) -> anyhow::Result<String> {
-    let resp = http_client.get(audio_url).send().await?;
-    println!("downloading audio to memory");
-    // TODO; figure out why this constantly errors out
-    let body_bytes_stream = resp.bytes_stream();
+    let video_options = VideoOptions {
+        quality: VideoQuality::HighestAudio,
+        filter: VideoSearchOptions::Audio,
+        ..Default::default()
+    };
 
-    let source = AudioSource::from_buffer_with_mime_type(reqwest::Body::wrap_stream(body_bytes_stream), audio_mime);
+    // TODO; figure out why this constantly errors out
+
+    println!("youtube_url - {youtube_url}");
+
+    let video = Video::new_with_options(youtube_url, video_options)?;
+
+    let stream = video.stream().await?;
+
+    let mut audio_bytes = Vec::new();
+    while let Some(chunk) = stream.chunk().await.unwrap() {
+        audio_bytes.extend(chunk);
+    }
+
+    println!("downloading audio to memory");
+
+    // hard setting it to "audio/webm" is super hacky 
+    // fix later
+    let source = AudioSource::from_buffer_with_mime_type(audio_bytes, "audio/webm");
 
     // Adds Read and Seek to the bytes via Cursor
     let options = Options::builder()
@@ -265,9 +319,9 @@ async fn audio_url_to_text(
         .build();
 
     let response = deepgram_client
-    .transcription()
-    .prerecorded(source, &options)
-    .await?;
+        .transcription()
+        .prerecorded(source, &options)
+        .await?;
     println!("transcribing audio with deepgram");
 
     println!("transcription complete");
@@ -275,22 +329,6 @@ async fn audio_url_to_text(
         .transcript
         .clone()
         .to_owned())
-}
-
-async fn youtube_video_audio_url(video_url: &str) -> anyhow::Result<(String, String)> {
-    let id = Id::from_raw(video_url)?;
-    let video = Video::from_id(id.into_owned()).await?;
-    let best_audio = video
-        .streams()
-        .iter()
-        .filter(|stream| stream.includes_audio_track && !stream.includes_video_track)
-        .max_by_key(|stream| stream.quality_label);
-
-    let best_audio = best_audio.unwrap();
-    Ok((
-        best_audio.signature_cipher.url.to_string(),
-        best_audio.mime.to_string(),
-    ))
 }
 
 async fn text_to_embedding(
@@ -309,8 +347,9 @@ async fn text_to_embedding(
     Ok(data.embedding.clone())
 }
 
+// read later - https://blog.0x7d0.dev/history/how-they-bypass-youtube-video-download-throttling/
+// good read on youtube video throttling
 
-// implement later - https://blog.0x7d0.dev/history/how-they-bypass-youtube-video-download-throttling/
 // video_url:
 // video_transcript:
 // video_embedding:
