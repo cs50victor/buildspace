@@ -1,7 +1,8 @@
 # Buildspace AI
+
 `find and be found.`
 
-a more detailed docs coming soon. 
+a more detailed docs coming soon.
 
 ## setup for mac
 
