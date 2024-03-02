@@ -6,4 +6,3 @@ livekit_plugins_elevenlabs==0.2.0
 livekit_protocol==0.3.1
 openai==1.13.3
 python-dotenv==1.0.1
-supabase==2.4.0

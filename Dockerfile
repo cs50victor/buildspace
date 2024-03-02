@@ -28,9 +28,10 @@ RUN adduser \
 COPY . .
 
 RUN pip install -r requirements.txt
+RUN pip install supabase
 
 # Switch to the non-privileged user to run the application.
 USER appuser
 
 # Run the application.
-CMD python agent.py start
+CMD python server/agent.py start
