@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-ARG PYTHON_VERSION=3.11.6
+ARG PYTHON_VERSION=3.12.1
 FROM python:${PYTHON_VERSION}-slim as base
 
 # Prevents Python from writing pyc files.
@@ -27,10 +27,11 @@ RUN adduser \
 # Copy the source code into the container.
 COPY . .
 
-RUN python -m pip install -r requirements.txt
+RUN pip install -r requirements.txt
+RUN pip install supabase
 
 # Switch to the non-privileged user to run the application.
 USER appuser
 
 # Run the application.
-CMD python agent.py start
+CMD python server/agent.py start
