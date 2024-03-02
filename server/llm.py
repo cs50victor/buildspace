@@ -19,9 +19,10 @@ import openai
 from dataclasses import dataclass
 from typing import AsyncIterable, List, Optional
 from enum import Enum
+from dotenv import load_dotenv
+load_dotenv()
 
 ChatGPTMessageRole = Enum("MessageRole", ["system", "user", "assistant", "function"])
-
 
 @dataclass
 class ChatGPTMessage:
@@ -86,6 +87,20 @@ class ChatGPTPlugin:
 
         async for text in self._generate_text_streamed(self._model):
             yield text
+
+    async def embed(
+        self, 
+        msg: str
+    ):
+        try:
+            resp = await self._client.embeddings.create(
+                    input=msg,
+                    encoding_format="float",
+                    model="text-embedding-3-small"
+            );
+            return resp.data[0].embedding
+        except: 
+            return None
 
     async def _generate_text_streamed(self, model: str) -> AsyncIterable[str]:
         prompt_message = ChatGPTMessage(
