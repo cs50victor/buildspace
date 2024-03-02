@@ -1,10 +1,11 @@
-# buildspace
+# Buildspace AI
+`find and be found.`
 
-buildspace demo. find and be found.
+a more detailed docs coming soon. 
 
 ## setup for mac
 
-- mkcenv --name buildspace
+- mkcenv --name buildspace -f environment.yml
 - `python server/agent.py start`
 
 ## how to add a new season
