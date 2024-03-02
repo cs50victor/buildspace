@@ -59,7 +59,11 @@ export default function Page() {
             exit={{ opacity: 0, translateY: -50 }}
           >
             <PlaygroundToast
-              message={toastMessage.message}
+              message={
+                toastMessage.message === 'Permission denied'
+                  ? 'Please enable your microphone so i can hear you. 😊'
+                  : toastMessage.message
+              }
               type={toastMessage.type}
               onDismiss={() => setToastMessage(null)}
             />
