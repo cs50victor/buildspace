@@ -1,3 +1,4 @@
+import { Analytics } from '@vercel/analytics/react';
 import type { Metadata } from 'next';
 import { Inter, Roboto } from 'next/font/google';
 
@@ -34,6 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <body className="w-full h-full">
         {children}
+        <Analytics />
         <TailwindIndicator />
       </body>
     </html>
