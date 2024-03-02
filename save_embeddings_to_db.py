@@ -1,3 +1,4 @@
+import inspect
 import os
 import json
 from supabase import create_client, Client
@@ -17,5 +18,5 @@ f.close()
 for submission in s3_data:
     submission["season"]="3"
 
-
 data, count = supabase.table("demoday_submission").upsert(s3_data).execute()
+

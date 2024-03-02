@@ -16,12 +16,15 @@
 import asyncio
 from datetime import datetime
 from enum import Enum
+import inspect
 import json
 import logging
+import os
 from typing import AsyncIterable
 
 from livekit import rtc, agents
 from livekit.agents.tts import SynthesisEvent, SynthesisEventType
+from supabase import Client, create_client
 from llm import (
     ChatGPTMessage,
     ChatGPTMessageRole,
@@ -30,15 +33,14 @@ from llm import (
 from livekit.plugins.deepgram import STT
 from livekit.plugins.elevenlabs import TTS
 
-PROMPT = "You are KITT, a friendly voice assistant powered by LiveKit.  \
+PROMPT = "You are Buildspace AI, a friendly voice assistant that connects buildspace members together. \
           Conversation should be personable, and be sure to ask follow up questions. \
           If your response is a question, please append a question mark symbol to the end of it.\
           Don't respond with more than a few sentences."
-INTRO = "Hello, I am KITT, a friendly voice assistant powered by LiveKit Agents. \
-        You can find my source code in the top right of this screen if you're curious how I work. \
-        Feel free to ask me anything — I'm here to help! Just start talking or type in the chat."
-SIP_INTRO = "Hello, I am KITT, a friendly voice assistant powered by LiveKit Agents. \
-             Feel free to ask me anything — I'm here to help! Just start talking."
+
+INTRO = "Hey, I'm Buildspace AI, what's your name?."
+
+SIP_INTRO = "Hey, I'm Buildspace AI, what's your name?.."
 
 
 
@@ -58,11 +60,11 @@ ELEVEN_TTS_SAMPLE_RATE = 24000
 ELEVEN_TTS_CHANNELS = 1
 
 
-class KITT:
+class BuildspaceAI:
     @classmethod
     async def create(cls, ctx: agents.JobContext):
-        kitt = KITT(ctx)
-        await kitt.start()
+        buildspace = BuildspaceAI(ctx)
+        await buildspace.start()
 
     def __init__(self, ctx: agents.JobContext):
         # plugins
@@ -76,6 +78,9 @@ class KITT:
             model_id="eleven_turbo_v2", sample_rate=ELEVEN_TTS_SAMPLE_RATE
         )
 
+        url: str = os.environ.get("SUPABASE_URL")
+        key: str = os.environ.get("SUPABASE_SERVICE_KEY")
+        self.supabase: Client = create_client(url, key)
         self.ctx: agents.JobContext = ctx
         self.chat = rtc.ChatManager(ctx.room)
         self.audio_out = rtc.AudioSource(ELEVEN_TTS_SAMPLE_RATE, ELEVEN_TTS_CHANNELS)
@@ -130,6 +135,33 @@ class KITT:
             stream.push_frame(audio_frame_event.frame)
         await stream.flush()
 
+    def reprompt(self, data, msg:str) -> str:
+        # handle later
+        # tokenCount = 0
+        contextText = "You are a very enthusiastic Supabase representative who loves \
+        to help people! Your main and only goal is to assist people with building and help connect them with \
+        other buildspace members. You currently only have information on participants from Buildspace \
+        season 3. Given the following sections from previous \
+        Buildspace seasons, answer the question using only that information, \
+        when asked to find or connect with people. If you are unsure and the answer \
+        is not explicitly written in the section below, say \
+        'Sorry, I can't find anyone from Buildspace to connect you with.' closest matches from previous buildspace seasons: "
+        
+        data = data[1]    
+        
+        for match in data:
+            print("data", data)
+            print("match", match)
+            contextText += f"Title of Demo Day Submission: {match["title"]}\
+                Niche: {match["niche"]}\
+                Summary: {match["description"]} \
+                Full Description: {match["youtube_transcript"]} \
+                Buildspace Season: {match["season"]}"
+        
+        contextText+=f"\nuser's message or question: {msg}"
+        
+        return inspect.cleandoc(contextText);
+
     async def process_stt_stream(self, stream):
         buffered_text = ""
         async for event in stream:
@@ -149,6 +181,16 @@ class KITT:
                 ),
                 topic="transcription",
             )
+            
+            msg_embedding = await self.chatgpt_plugin.embed(buffered_text)
+            if msg_embedding:
+                data, count = self.supabase.rpc('match_person', {
+                    "query_embedding": msg_embedding,
+                    "match_threshold": 0.20,
+                    "match_count": 4,
+                }).execute()
+                buffered_text = self.reprompt(data,buffered_text)
+                
 
             msg = ChatGPTMessage(role=ChatGPTMessageRole.user, content=buffered_text)
             chatgpt_stream = self.chatgpt_plugin.add_message(msg)
@@ -207,12 +249,12 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     async def job_request_cb(job_request: agents.JobRequest):
-        logging.info("Accepting job for KITT")
+        logging.info("Accepting job for Buildspace AI")
 
         await job_request.accept(
-            KITT.create,
-            identity="kitt_agent",
-            name="KITT",
+            BuildspaceAI.create,
+            identity="Buildspace AI",
+            name="Buildspace AI",
             auto_subscribe=agents.AutoSubscribe.AUDIO_ONLY,
             auto_disconnect=agents.AutoDisconnect.DEFAULT,
         )
