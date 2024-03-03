@@ -31,17 +31,16 @@ from llm import (
     ChatGPTPlugin,
 )
 from livekit.plugins.deepgram import STT
-from livekit.plugins.elevenlabs import TTS
+from livekit.plugins.elevenlabs import TTS, Voice, VoiceSettings
 
 PROMPT = "You are Buildspace AI, a friendly voice assistant that connects buildspace members together. \
           Conversation should be personable, and be sure to ask follow up questions. \
           If your response is a question, please append a question mark symbol to the end of it.\
           Don't respond with more than a few sentences."
 
-INTRO = "Hey, I'm Buildspace AI, what's your name?."
+INTRO = "Hey! I'm Buildspace AI. Here to help you build your ideas, find other buildspace members you can connect with, and help you get discovered. So, what's your name and tell me a little bit about what you're building."
 
-SIP_INTRO = "Hey, I'm Buildspace AI, what's your name?.."
-
+SIP_INTRO = "Hey! I'm Buildspace AI. Here to help you build your ideas, find other buildspace members you can connect with, and help you get discovered. So, what's your name and tell me a little bit about what you're building."
 
 
     
@@ -75,7 +74,16 @@ class BuildspaceAI:
             min_silence_duration=100,
         )
         self.tts_plugin = TTS(
-            model_id="eleven_turbo_v2", sample_rate=ELEVEN_TTS_SAMPLE_RATE
+            voice= Voice(
+                id="iP95p4xoKVk53GoZ742B",
+                name="Chris",
+                category="premade",
+                settings=VoiceSettings(
+                    stability=0.71, similarity_boost=0.5, style=0.0, use_speaker_boost=True
+                ),
+            ),
+            model_id="eleven_turbo_v2", 
+            sample_rate=ELEVEN_TTS_SAMPLE_RATE
         )
 
         url: str = os.environ.get("SUPABASE_URL")
@@ -138,14 +146,13 @@ class BuildspaceAI:
     def reprompt(self, data, msg:str) -> str:
         # handle later
         # tokenCount = 0
-        contextText = "You are a very enthusiastic Supabase representative who loves \
-        to help people! Your main and only goal is to assist people with building and help connect them with \
+        contextText = "One of your main goals is to assist people with building their ideas and helping connect them with \
         other buildspace members. You currently only have information on participants from Buildspace \
         season 3. Given the following sections from previous \
-        Buildspace seasons, answer the question using only that information, \
-        when asked to find or connect with people. If you are unsure and the answer \
-        is not explicitly written in the section below, say \
-        'Sorry, I can't find anyone from Buildspace to connect you with.' closest matches from previous buildspace seasons: "
+        Buildspace seasons, answer the question using only that information when asked for recommendations or people to connect with, \
+        or when asked to find or connect with people. If you are unsure and the answer \
+        is not explicitly provided in the section below, say \
+        'Sorry, I can't find anyone from Buildspace to connect you with.', then ask a clarifying question. Here's some context of closest matches from previous buildspace seasons: "
         
         data = data[1]    
         
@@ -156,9 +163,10 @@ class BuildspaceAI:
                 Niche: {match["niche"]}\
                 Summary: {match["description"]} \
                 Full Description: {match["youtube_transcript"]} \
+                Social: {match["social"]} \
                 Buildspace Season: {match["season"]}"
         
-        contextText+=f"\nuser's message or question: {msg}"
+        contextText+=f"\nuser's message: {msg}"
         
         return inspect.cleandoc(contextText);
 
@@ -186,7 +194,7 @@ class BuildspaceAI:
             if msg_embedding:
                 data, count = self.supabase.rpc('match_person', {
                     "query_embedding": msg_embedding,
-                    "match_threshold": 0.20,
+                    "match_threshold": 0.30,
                     "match_count": 4,
                 }).execute()
                 buffered_text = self.reprompt(data,buffered_text)
