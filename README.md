@@ -2,6 +2,10 @@
 
 `find and be found.`
 
+
+https://github.com/cs50victor/buildspace/assets/52110451/2a0e0750-e21e-4aa9-b856-0a7f7fb9c3b8
+
+
 a more detailed docs coming soon.
 
 ## setup for mac
